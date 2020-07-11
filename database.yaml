@@ -1,0 +1,79 @@
+ 
+apiVersion: v1
+kind: Service
+metadata:
+  name: joomla-mariadb
+  labels:
+    app: database
+spec:
+  ports:
+  - port: 3306
+  selector:
+    app: database 
+  clusterIP: None   
+  
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvclaim
+  labels:
+    storage: mariadbstorage
+spec: 
+  accessModes: 
+    -  ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi    
+ 
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata: 
+  name: my-database
+  labels:
+    app: database
+
+spec:
+  selector:
+    matchLabels:
+      app: database
+
+
+  template:
+    metadata:
+      name: my-database
+      labels:
+        app: database
+    spec:
+      containers:
+      -  image: mariadb:10.1.45
+         name: mydb
+         env:
+         - name: MYSQL_ROOT_PASSWORD   #refer the docker hub for environmental variable of maridb
+           valueFrom:
+             secretKeyRef:
+               name:  my-secret
+               key: rpass
+               
+         -  name: MYSQL_USER
+            value: joomla
+         -  name: MYSQL_PASSWORD
+            valueFrom:
+                 secretKetRef:
+                   name: my-secret
+                   key: upass
+         -  name: MYSQL_DATABASE
+            value: joomla
+         ports:
+         - containerPort: 3306
+           name: mydb
+         volumeMounts:
+         - name: mariadb-persistent-storage
+           mountPath: /var/lib/mysql
+      volumes:
+        - name: mariadb-persistent-storage
+          persistentVolumeClaim:
+            claimName: pvclaim
